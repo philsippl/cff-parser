@@ -5,7 +5,6 @@ use core::num::NonZeroU16;
 
 /// The Expert Encoding conversion as defined in the Adobe Technical Note #5176 Appendix C.
 #[rustfmt::skip]
-#[cfg(feature = "glyph-names")]
 const EXPERT_ENCODING: &[u16] = &[
       0,    1,  229,  230,  231,  232,  233,  234,  235,  236,  237,  238,   13,   14,   15,   99,
     239,  240,  241,  242,  243,  244,  245,  246,  247,  248,   27,   28,  249,  250,  251,  252,
@@ -22,7 +21,6 @@ const EXPERT_ENCODING: &[u16] = &[
 
 /// The Expert Subset Encoding conversion as defined in the Adobe Technical Note #5176 Appendix C.
 #[rustfmt::skip]
-#[cfg(feature = "glyph-names")]
 const EXPERT_SUBSET_ENCODING: &[u16] = &[
       0,    1,  231,  232,  235,  236,  237,  238,   13,   14,   15,   99,  239,  240,  241,  242,
     243,  244,  245,  246,  247,  248,   27,   28,  249,  250,  251,  253,  254,  255,  256,  257,
@@ -33,9 +31,9 @@ const EXPERT_SUBSET_ENCODING: &[u16] = &[
 ];
 
 #[derive(Clone, Copy, Debug)]
-pub(crate) struct Format1Range {
-    first: StringId,
-    left: u8,
+pub struct Format1Range {
+    pub first: StringId,
+    pub left: u8,
 }
 
 impl FromData for Format1Range {
@@ -52,9 +50,9 @@ impl FromData for Format1Range {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub(crate) struct Format2Range {
-    first: StringId,
-    left: u16,
+pub struct Format2Range {
+    pub first: StringId,
+    pub left: u16,
 }
 
 impl FromData for Format2Range {
@@ -71,7 +69,7 @@ impl FromData for Format2Range {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub(crate) enum Charset<'a> {
+pub enum Charset<'a> {
     ISOAdobe,
     Expert,
     ExpertSubset,
@@ -123,6 +121,33 @@ impl Charset<'_> {
                 }
 
                 None
+            }
+        }
+    }
+
+    pub fn get_table(&self) -> Vec<StringId> {
+        match self {
+            Charset::ISOAdobe => {
+                (0..=228).map(StringId).collect()
+            }
+            Charset::Expert => EXPERT_ENCODING.iter().map(|&n| StringId(n)).collect(),
+            Charset::ExpertSubset => EXPERT_SUBSET_ENCODING.iter().map(|&n| StringId(n)).collect(),
+            Charset::Format0(ref array) => array.clone().into_iter().collect(),
+            Charset::Format1(array) => {
+                let mut vec = Vec::new();
+                for range in *array {
+                    vec.push(range.first);
+                    vec.extend((range.first.0 + 1..=u16::from(range.left)).map(StringId));
+                }
+                vec
+            }
+            Charset::Format2(array) => {
+                let mut vec = Vec::new();
+                for range in *array {
+                    vec.push(range.first);
+                    vec.extend((range.first.0 + 1..=u16::from(range.left)).map(StringId));
+                }
+                vec
             }
         }
     }

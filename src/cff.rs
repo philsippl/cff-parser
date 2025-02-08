@@ -1,6 +1,3 @@
-//! A [Compact Font Format Table](
-//! https://docs.microsoft.com/en-us/typography/opentype/spec/cff) implementation.
-
 // Useful links:
 // http://wwwimages.adobe.com/content/dam/Adobe/en/devnet/font/pdfs/5176.CFF.pdf
 // http://wwwimages.adobe.com/content/dam/Adobe/en/devnet/font/pdfs/5177.Type2.pdf
@@ -16,7 +13,6 @@ use super::charstring::CharStringParser;
 use super::dict::DictionaryParser;
 use super::encoding::{parse_encoding, Encoding, STANDARD_ENCODING};
 use super::index::{parse_index, skip_index, Index};
-#[cfg(feature = "glyph-names")]
 use super::std_names::STANDARD_NAMES;
 use super::{calc_subroutine_bias, conv_subroutine_index, Builder, CFFError, IsEven, StringId};
 use crate::parser::{LazyArray16, NumFrom, Stream, TryNumFrom};
@@ -67,9 +63,15 @@ mod operator {
 /// Enumerates some operators defined in the Adobe Technical Note #5176,
 /// Table 9 Top DICT Operator Entries
 mod top_dict_operator {
-    pub const CHARSET_OFFSET: u16 = 15;
-    pub const ENCODING_OFFSET: u16 = 16;
-    pub const CHAR_STRINGS_OFFSET: u16 = 17;
+    pub const VERSION: u16                      = 0;
+    pub const NOTICE: u16                       = 1;
+    pub const FULL_NAME: u16                    = 2;
+    pub const FAMILY_NAME: u16                  = 3;
+    pub const WEIGHT: u16                       = 4;
+    pub const FONT_BBOX: u16                    = 5;
+    pub const CHARSET_OFFSET: u16               = 15;
+    pub const ENCODING_OFFSET: u16              = 16;
+    pub const CHAR_STRINGS_OFFSET: u16          = 17;
     pub const PRIVATE_DICT_SIZE_AND_OFFSET: u16 = 18;
     pub const FONT_MATRIX: u16 = 1207;
     pub const ROS: u16 = 1230;
@@ -147,6 +149,7 @@ impl Default for Matrix {
 
 #[derive(Default)]
 struct TopDict {
+    full_name: Option<StringId>,
     charset_offset: Option<usize>,
     encoding_offset: Option<usize>,
     char_strings_offset: usize,
@@ -169,6 +172,9 @@ fn parse_top_dict(s: &mut Stream) -> Option<TopDict> {
     let mut dict_parser = DictionaryParser::new(data, &mut operands_buffer);
     while let Some(operator) = dict_parser.parse_next() {
         match operator.get() {
+            top_dict_operator::FULL_NAME => {
+                top_dict.full_name = dict_parser.parse_sid();
+            }
             top_dict_operator::CHARSET_OFFSET => {
                 top_dict.charset_offset = dict_parser.parse_offset();
             }
@@ -340,6 +346,18 @@ fn parse_cid_local_subrs<'a>(
     let subrs_data = data.get(start..)?;
     let mut s = Stream::new(subrs_data);
     parse_index::<u16>(&mut s)
+}
+
+pub fn string_by_id<'a>(metadata: &'a Table, sid: StringId) -> Option<&'a str> {
+    let sid = usize::from(sid.0);
+    match STANDARD_NAMES.get(sid) {
+        Some(name) => Some(name),
+        None => {
+            let idx = u32::try_from(sid - STANDARD_NAMES.len()).ok()?;
+            let name = metadata.strings.get(idx)?;
+            core::str::from_utf8(name).ok()
+        }
+    }
 }
 
 struct CharStringParserContext<'a> {
@@ -841,7 +859,8 @@ pub struct Table<'a> {
     #[allow(dead_code)]
     strings: Index<'a>,
     global_subrs: Index<'a>,
-    charset: Charset<'a>,
+    pub encoding: Encoding<'a>,
+    pub charset: Charset<'a>,
     number_of_glyphs: NonZeroU16,
     matrix: Matrix,
     char_strings: Index<'a>,
@@ -907,24 +926,25 @@ impl<'a> Table<'a> {
 
         let matrix = top_dict.matrix;
 
+        // Only SID fonts are allowed to have an Encoding.
+        let encoding = match top_dict.encoding_offset {
+            Some(encoding_id::STANDARD) => Encoding::new_standard(),
+            Some(encoding_id::EXPERT) => Encoding::new_expert(),
+            Some(offset) => parse_encoding(&mut Stream::new_at(data, offset)?)?,
+            None => Encoding::new_standard(), // default
+        };
+
         let kind = if top_dict.has_ros {
             parse_cid_metadata(data, top_dict, number_of_glyphs.get())?
         } else {
-            // Only SID fonts are allowed to have an Encoding.
-            let encoding = match top_dict.encoding_offset {
-                Some(encoding_id::STANDARD) => Encoding::new_standard(),
-                Some(encoding_id::EXPERT) => Encoding::new_expert(),
-                Some(offset) => parse_encoding(&mut Stream::new_at(data, offset)?)?,
-                None => Encoding::new_standard(), // default
-            };
-
-            parse_sid_metadata(data, top_dict, encoding)?
+            parse_sid_metadata(data, top_dict, encoding.clone())?
         };
 
         Some(Self {
             table_data: data,
             strings,
             global_subrs,
+            encoding,
             charset,
             number_of_glyphs,
             matrix,

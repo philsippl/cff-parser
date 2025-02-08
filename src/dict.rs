@@ -1,7 +1,7 @@
 use core::convert::TryFrom;
 use core::ops::Range;
 
-use crate::Stream;
+use crate::{Stream, StringId};
 
 // Limits according to the Adobe Technical Note #5176, chapter 4 DICT Data.
 const TWO_BYTE_OPERATOR_MARK: u8 = 12;
@@ -126,6 +126,18 @@ impl<'a> DictionaryParser<'a> {
         } else {
             None
         }
+    }
+
+    pub fn parse_sid(&mut self) -> Option<StringId> {
+        self.parse_operands()?;
+        let operands = self.operands();
+        if operands.len() == 1 {
+            let sid = operands[0] as i32;
+            if sid >= 0 && sid <= 0xFFFF {
+                return Some(StringId(sid as u16));
+            }
+        }
+        None
     }
 
     #[inline]

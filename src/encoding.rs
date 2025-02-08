@@ -25,9 +25,9 @@ pub const STANDARD_ENCODING: [u8; 256] = [
 ];
 
 #[derive(Clone, Copy, Debug)]
-pub(crate) struct Format1Range {
-    first: u8,
-    left: u8,
+pub struct Format1Range {
+    pub first: u8,
+    pub left: u8,
 }
 
 impl FromData for Format1Range {
@@ -63,13 +63,13 @@ impl FromData for Supplement {
 }
 
 #[derive(Clone, Copy, Default, Debug)]
-pub(crate) struct Encoding<'a> {
-    kind: EncodingKind<'a>,
+pub struct Encoding<'a> {
+    pub kind: EncodingKind<'a>,
     supplemental: LazyArray16<'a, Supplement>,
 }
 
 #[derive(Clone, Copy, Debug)]
-pub(crate) enum EncodingKind<'a> {
+pub enum EncodingKind<'a> {
     Standard,
     Expert,
     Format0(LazyArray16<'a, u8>),
@@ -140,6 +140,23 @@ impl Encoding<'_> {
                 }
 
                 None
+            }
+        }
+    }
+
+    pub fn get_table(&self) -> Vec<u8> {
+        match self.kind {
+            EncodingKind::Standard => STANDARD_ENCODING.to_vec(),
+            EncodingKind::Expert => panic!(),
+            EncodingKind::Format0(ref encoding) => encoding.clone().into_iter().collect(),
+            EncodingKind::Format1(ref table) => {
+                let mut encoding = Vec::new();
+                for range in table.clone() {
+                    for code in range.first..=range.first.saturating_add(range.left) {
+                        encoding.push(code);
+                    }
+                }
+                encoding
             }
         }
     }
