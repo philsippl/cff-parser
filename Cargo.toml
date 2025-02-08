@@ -7,6 +7,7 @@ categories = ["parser-implementations"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/jrmuizel/cff-parser"
 documentation = "https://docs.rs/cff-parser/"
+description = "A parser for the Compact Font Format (CFF)"
 readme = "README.md"
 edition = "2021"
 
