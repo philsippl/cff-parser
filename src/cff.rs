@@ -63,12 +63,7 @@ mod operator {
 /// Enumerates some operators defined in the Adobe Technical Note #5176,
 /// Table 9 Top DICT Operator Entries
 mod top_dict_operator {
-    pub const VERSION: u16                      = 0;
-    pub const NOTICE: u16                       = 1;
     pub const FULL_NAME: u16                    = 2;
-    pub const FAMILY_NAME: u16                  = 3;
-    pub const WEIGHT: u16                       = 4;
-    pub const FONT_BBOX: u16                    = 5;
     pub const CHARSET_OFFSET: u16               = 15;
     pub const ENCODING_OFFSET: u16              = 16;
     pub const CHAR_STRINGS_OFFSET: u16          = 17;
@@ -1021,7 +1016,6 @@ impl<'a> Table<'a> {
     }
 
     /// Returns a glyph ID by a name.
-    #[cfg(feature = "glyph-names")]
     pub fn glyph_index_by_name(&self, name: &str) -> Option<GlyphId> {
         match self.kind {
             FontKind::SID(_) => {
@@ -1042,7 +1036,6 @@ impl<'a> Table<'a> {
     }
 
     /// Returns a glyph name.
-    #[cfg(feature = "glyph-names")]
     pub fn glyph_name(&self, glyph_id: GlyphId) -> Option<&'a str> {
         match self.kind {
             FontKind::SID(_) => {
@@ -1064,7 +1057,6 @@ impl<'a> Table<'a> {
     /// Returns the CID corresponding to a glyph ID.
     ///
     /// Returns `None` if this is not a CIDFont.
-    #[cfg(feature = "glyph-names")]
     pub fn glyph_cid(&self, glyph_id: GlyphId) -> Option<u16> {
         match self.kind {
             FontKind::SID(_) => None,

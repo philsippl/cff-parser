@@ -152,7 +152,6 @@ impl Charset<'_> {
         }
     }
 
-    #[cfg(feature = "glyph-names")]
     pub fn gid_to_sid(&self, gid: GlyphId) -> Option<StringId> {
         match self {
             Charset::ISOAdobe => {
