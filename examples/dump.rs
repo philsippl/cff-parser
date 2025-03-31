@@ -12,6 +12,13 @@ fn main() {
     reader.read_to_end(&mut buffer).expect("could not read file");
     let table = Table::parse(&buffer).unwrap();
     dbg!(&table);
+    println!("full name: {:?}", table.full_name().and_then(|s| string_by_id(&table, s)));
+    println!("family name: {:?}", table.family_name().and_then(|s| string_by_id(&table, s)));
+    println!("version: {:?}", table.version().and_then(|s| string_by_id(&table, s)));
+    println!("notice: {:?}", table.notice().and_then(|s| string_by_id(&table, s)));
+    println!("number of glyphs: {:?}", table.number_of_glyphs());
+
+    println!("charset:");
     match table.charset {
 
         Charset::ISOAdobe => println!("ISOAdobe"),
@@ -38,6 +45,7 @@ fn main() {
             }
         }
     }
+    println!("encoding:");
     match table.encoding.kind {
         cff_parser::EncodingKind::Standard => println!("Standard"),
         cff_parser::EncodingKind::Expert => println!("Expert"),

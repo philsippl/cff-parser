@@ -63,7 +63,10 @@ mod operator {
 /// Enumerates some operators defined in the Adobe Technical Note #5176,
 /// Table 9 Top DICT Operator Entries
 mod top_dict_operator {
+    pub const VERSION: u16                      = 0;
+    pub const NOTICE: u16                       = 1;
     pub const FULL_NAME: u16                    = 2;
+    pub const FAMILY_NAME: u16                  = 3;
     pub const CHARSET_OFFSET: u16               = 15;
     pub const ENCODING_OFFSET: u16              = 16;
     pub const CHAR_STRINGS_OFFSET: u16          = 17;
@@ -144,7 +147,10 @@ impl Default for Matrix {
 
 #[derive(Default)]
 struct TopDict {
+    version: Option<StringId>,
+    notice: Option<StringId>,
     full_name: Option<StringId>,
+    family_name: Option<StringId>,
     charset_offset: Option<usize>,
     encoding_offset: Option<usize>,
     char_strings_offset: usize,
@@ -167,8 +173,17 @@ fn parse_top_dict(s: &mut Stream) -> Option<TopDict> {
     let mut dict_parser = DictionaryParser::new(data, &mut operands_buffer);
     while let Some(operator) = dict_parser.parse_next() {
         match operator.get() {
+            top_dict_operator::VERSION => {
+                top_dict.version = dict_parser.parse_sid();
+            }
+            top_dict_operator::NOTICE => {
+                top_dict.notice = dict_parser.parse_sid();
+            }
             top_dict_operator::FULL_NAME => {
                 top_dict.full_name = dict_parser.parse_sid();
+            }
+            top_dict_operator::FAMILY_NAME => {
+                top_dict.family_name = dict_parser.parse_sid();
             }
             top_dict_operator::CHARSET_OFFSET => {
                 top_dict.charset_offset = dict_parser.parse_offset();
@@ -860,6 +875,10 @@ pub struct Table<'a> {
     matrix: Matrix,
     char_strings: Index<'a>,
     kind: FontKind<'a>,
+    version: Option<StringId>,
+    notice: Option<StringId>,
+    full_name: Option<StringId>,
+    family_name: Option<StringId>,
 }
 
 impl<'a> Table<'a> {
@@ -920,6 +939,10 @@ impl<'a> Table<'a> {
         };
 
         let matrix = top_dict.matrix;
+        let version = top_dict.version;
+        let notice = top_dict.notice;
+        let full_name = top_dict.full_name;
+        let family_name = top_dict.family_name;
 
         // Only SID fonts are allowed to have an Encoding.
         let encoding = match top_dict.encoding_offset {
@@ -945,6 +968,10 @@ impl<'a> Table<'a> {
             matrix,
             char_strings,
             kind,
+            version,
+            notice,
+            full_name,
+            family_name,
         })
     }
 
@@ -1062,6 +1089,22 @@ impl<'a> Table<'a> {
             FontKind::SID(_) => None,
             FontKind::CID(_) => self.charset.gid_to_sid(glyph_id).map(|id| id.0),
         }
+    }
+
+    pub fn version(&self) -> Option<StringId> {
+        self.version
+    }
+
+    pub fn notice(&self) -> Option<StringId> {
+        self.notice
+    }
+
+    pub fn full_name(&self) -> Option<StringId> {
+        self.full_name
+    }
+
+    pub fn family_name(&self) -> Option<StringId> {
+        self.family_name
     }
 }
 
