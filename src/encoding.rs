@@ -147,7 +147,7 @@ impl Encoding<'_> {
     pub fn get_table(&self) -> Vec<u8> {
         match self.kind {
             EncodingKind::Standard => STANDARD_ENCODING.to_vec(),
-            EncodingKind::Expert => panic!(),
+            EncodingKind::Expert => vec![],
             EncodingKind::Format0(ref encoding) => encoding.clone().into_iter().collect(),
             EncodingKind::Format1(ref table) => {
                 let mut encoding = Vec::new();
